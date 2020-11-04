@@ -1,0 +1,10 @@
+{
+  "name": "alexa-ai-iot-sample",
+  "description": "",
+  "version": "1.0.0",
+  "dependencies": {
+    "ask-sdk-core": "^2.10.1",
+    "ask-sdk-model": "^1.34.0"
+  },
+  "devDependencies": {}
+}

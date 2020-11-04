@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  alexa-ai-iot-sample
+  
+Parameters:
+  AlexaSkillId:
+    Type: String
+    Description: Alexa skill id
+  IotEndpoint:
+    Type: String
+    Description: IoT endpoint
+  IotTopicPub:
+    Type: String
+    Description: IoT publish topic
+  IotTopicSub:
+    Type: String
+    Description: IoT subscribe topic
+  ObjectName:
+    Type: String
+    Description: Filename for saved image
+
+Globals:
+  Function:
+    Timeout: 3
+
+Resources:
+  AlexaSkillFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: alexa/
+      Handler: index.handler
+      Runtime: nodejs12.x
+      Events:
+        AlexaSkill:
+          Type: AlexaSkill
+          SkillId: !Ref AlexaSkillId
+      Environment:
+        Variables:
+          IOT_ENDPOINT: !Ref IotEndpoint
+          IOT_TOPIC_PUB: !Ref IotTopicPub
+          OBJECT_NAME: !Ref ObjectName
+          BUCKET_NAME: !Ref ImageBucket
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - iot:Publish
+              Resource:
+                - Fn::Join:
+                  - ''
+                  - - 'arn:aws:iot:*:*:topic/'
+                    - Ref: IotTopicPub
+        - S3ReadPolicy:
+            BucketName: !Ref ImageBucket
+        - RekognitionDetectOnlyPolicy: {}
+  SaveImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: save/
+      Handler: index.handler
+      Runtime: nodejs12.x
+      Events:
+        IotMessage:
+          Type: IoTRule
+          Properties:
+            Sql: !Sub "SELECT encode(*, 'base64') AS data FROM '${IotTopicSub}'"
+            AwsIotSqlVersion: '2016-03-23'
+      Environment:
+        Variables:
+          OBJECT_NAME: !Ref ObjectName
+          BUCKET_NAME: !Ref ImageBucket
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref ImageBucket
+  ImageBucket:
+    Type: AWS::S3::Bucket
+
+Outputs:
+  AlexaSkillFunctionARN:
+    Description: "Alexa Skill Function ARN"
+    Value: !GetAtt AlexaSkillFunction.Arn
